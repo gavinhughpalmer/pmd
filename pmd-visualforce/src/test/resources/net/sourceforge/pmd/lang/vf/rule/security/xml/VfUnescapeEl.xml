@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<test-data>
+<test-data
+    xmlns="http://pmd.sourceforge.net/rule-tests"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sourceforge.net/rule-tests http://pmd.sourceforge.net/rule-tests_1_0_0.xsd">
 	<test-code>
 		<description><![CDATA[
 apex:iframe with src pointing to VFEL
@@ -651,5 +654,40 @@ NOW() is a safe call
 		<source-type>vf</source-type>
 	</test-code>
 
+	<test-code>
+		<description><![CDATA[
+URLENCODE is ignored as valid escape method #1100
+     ]]></description>
+		<expected-problems>0</expected-problems>
+		<code><![CDATA[
+<a onclick="openTab('/apex/Download?redirectUrl={!URLENCODE(downloadURL)}', 'test');">
+]]></code>
+		<source-type>vf</source-type>
+	</test-code>
+
+    <test-code>
+        <description><![CDATA[
+a onclick snippet should be escaped #1100
+     ]]></description>
+        <expected-problems>1</expected-problems>
+        <code><![CDATA[
+<a onclick="openTab('/apex/Download?redirectUrl={!downloadURL}', 'test');">
+]]></code>
+        <source-type>vf</source-type>
+    </test-code>
+
+    <test-code>
+        <description><![CDATA[
+ensure all encoding methods are considered valid #1100
+     ]]></description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+<a onclick="openTab('/apex/Download?redirectUrl={!URLENCODE(downloadURL)}', 'test');">
+<a onclick="openTab({!JSENCODE('/apex/Download?redirectUrl=' + downloadURL)}', 'test');">
+<a onclick="openTab({!JSINHTMLENCODE('/apex/Download?redirectUrl=' + downloadURL)}', 'test');">
+<a onclick="openTab({!HTMLENCODE('/apex/Download?redirectUrl=' + downloadURL)}', 'test');">
+]]></code>
+        <source-type>vf</source-type>
+    </test-code>
 
 </test-data>

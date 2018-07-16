@@ -17,13 +17,15 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.StringTokenizer;
-
+import java.util.regex.Pattern;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
@@ -40,6 +42,7 @@ import net.sourceforge.pmd.lang.Language;
 import net.sourceforge.pmd.lang.LanguageRegistry;
 import net.sourceforge.pmd.lang.rule.RuleReference;
 import net.sourceforge.pmd.lang.rule.XPathRule;
+import net.sourceforge.pmd.properties.PropertyDescriptor;
 import net.sourceforge.pmd.util.ResourceLoader;
 
 /**
@@ -48,8 +51,7 @@ import net.sourceforge.pmd.util.ResourceLoader;
  */
 public abstract class AbstractRuleSetFactoryTest {
     private static SAXParserFactory saxParserFactory;
-    private static ValidateDefaultHandler validateDefaultHandlerXsd;
-    private static ValidateDefaultHandler validateDefaultHandlerDtd;
+    private static ValidateDefaultHandler validateDefaultHandler;
     private static SAXParser saxParser;
 
     protected Set<String> validXPathClassNames = new HashSet<>();
@@ -77,8 +79,7 @@ public abstract class AbstractRuleSetFactoryTest {
         saxParserFactory.setFeature("http://apache.org/xml/features/validation/schema", true);
         saxParserFactory.setFeature("http://apache.org/xml/features/validation/schema-full-checking", true);
 
-        validateDefaultHandlerXsd = new ValidateDefaultHandler("ruleset_2_0_0.xsd");
-        validateDefaultHandlerDtd = new ValidateDefaultHandler("ruleset_2_0_0.dtd");
+        validateDefaultHandler = new ValidateDefaultHandler();
 
         saxParser = saxParserFactory.newSAXParser();
     }
@@ -243,7 +244,7 @@ public abstract class AbstractRuleSetFactoryTest {
         List<String> ruleSetFileNames = new ArrayList<>();
         try {
             Properties properties = new Properties();
-            try (InputStream is = ResourceLoader.loadResourceAsStream("rulesets/" + language + "/rulesets.properties")) {
+            try (InputStream is = new ResourceLoader().loadClassPathResourceAsStreamOrThrow("rulesets/" + language + "/rulesets.properties")) {
                 properties.load(is);
             }
             String fileNames = properties.getProperty("rulesets.filenames");
@@ -277,9 +278,9 @@ public abstract class AbstractRuleSetFactoryTest {
     private boolean validateAgainstSchema(InputStream inputStream)
             throws IOException, RuleSetNotFoundException, ParserConfigurationException, SAXException {
 
-        saxParser.parse(inputStream, validateDefaultHandlerXsd.resetValid());
+        saxParser.parse(inputStream, validateDefaultHandler.resetValid());
         inputStream.close();
-        return validateDefaultHandlerXsd.isValid();
+        return validateDefaultHandler.isValid();
     }
 
     private boolean validateAgainstDtd(String fileName)
@@ -299,21 +300,27 @@ public abstract class AbstractRuleSetFactoryTest {
         String file = readFullyToString(inputStream);
         inputStream.close();
 
+        String rulesetNamespace = RuleSetWriter.RULESET_2_0_0_NS_URI;
+
         // Remove XML Schema stuff, replace with DTD
         file = file.replaceAll("<\\?xml [ a-zA-Z0-9=\".-]*\\?>", "");
-        file = file.replaceAll("xmlns=\"" + RuleSetWriter.RULESET_NS_URI + "\"", "");
+        file = file.replaceAll("xmlns=\"" + rulesetNamespace + "\"", "");
         file = file.replaceAll("xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"", "");
-        file = file.replaceAll("xsi:schemaLocation=\"" + RuleSetWriter.RULESET_NS_URI
-                + " http://pmd.sourceforge.net/ruleset_2_0_0.xsd\"", "");
+        file = file.replaceAll("xsi:schemaLocation=\"" + rulesetNamespace
+                + " http://pmd.sourceforge.net/ruleset_\\d_0_0.xsd\"", "");
 
-        file = "<?xml version=\"1.0\"?>" + PMD.EOL + "<!DOCTYPE ruleset SYSTEM \"file://"
-                + "/path/does/not/matter/will/be/replaced/ruleset_2_0_0.dtd\">" + PMD.EOL + file;
+        if (rulesetNamespace.equals(RuleSetWriter.RULESET_2_0_0_NS_URI)) {
+            file = "<?xml version=\"1.0\"?>" + PMD.EOL + "<!DOCTYPE ruleset SYSTEM "
+                    + "\"http://pmd.sourceforge.net/ruleset_2_0_0.dtd\">" + PMD.EOL + file;
+        } else {
+            file = "<?xml version=\"1.0\"?>" + PMD.EOL + "<!DOCTYPE ruleset>" + PMD.EOL + file;
+        }
 
         InputStream modifiedStream = new ByteArrayInputStream(file.getBytes());
 
-        saxParser.parse(modifiedStream, validateDefaultHandlerDtd.resetValid());
+        saxParser.parse(modifiedStream, validateDefaultHandler.resetValid());
         modifiedStream.close();
-        return validateDefaultHandlerDtd.isValid();
+        return validateDefaultHandler.isValid();
     }
 
     private String readFullyToString(InputStream inputStream) throws IOException {
@@ -329,14 +336,7 @@ public abstract class AbstractRuleSetFactoryTest {
     }
 
     private static InputStream loadResourceAsStream(String resource) throws RuleSetNotFoundException {
-        InputStream inputStream = ResourceLoader.loadResourceAsStream(resource,
-                AbstractRuleSetFactoryTest.class.getClassLoader());
-        if (inputStream == null) {
-            throw new RuleSetNotFoundException("Can't find resource " + resource
-                    + "  Make sure the resource is a valid file or URL or is on the CLASSPATH.  Here's the current classpath: "
-                    + System.getProperty("java.class.path"));
-        }
-        return inputStream;
+        return new ResourceLoader().loadClassPathResourceAsStreamOrThrow(resource);
     }
 
     private void testRuleSet(String fileName)
@@ -453,8 +453,14 @@ public abstract class AbstractRuleSetFactoryTest {
             List<PropertyDescriptor<?>> propertyDescriptors2 = rule2.getPropertyDescriptors();
             assertEquals(message + ", Rule property descriptor ", propertyDescriptors1, propertyDescriptors2);
             for (int j = 0; j < propertyDescriptors1.size(); j++) {
-                assertEquals(message + ", Rule property value " + j, rule1.getProperty(propertyDescriptors1.get(j)),
-                        rule2.getProperty(propertyDescriptors2.get(j)));
+                Object value1 = rule1.getProperty(propertyDescriptors1.get(j));
+                Object value2 = rule2.getProperty(propertyDescriptors2.get(j));
+                // special case for Pattern, there is no equals method
+                if (propertyDescriptors1.get(j).type() == Pattern.class) {
+                    value1 = ((Pattern) value1).pattern();
+                    value2 = ((Pattern) value2).pattern();
+                }
+                assertEquals(message + ", Rule property value " + j, value1, value2);
             }
             assertEquals(message + ", Rule property descriptor count", propertyDescriptors1.size(),
                     propertyDescriptors2.size());
@@ -471,7 +477,7 @@ public abstract class AbstractRuleSetFactoryTest {
     protected static RuleSetReferenceId createRuleSetReferenceId(final String ruleSetXml) {
         return new RuleSetReferenceId(null) {
             @Override
-            public InputStream getInputStream(ClassLoader classLoader) throws RuleSetNotFoundException {
+            public InputStream getInputStream(ResourceLoader resourceLoader) throws RuleSetNotFoundException {
                 try {
                     return new ByteArrayInputStream(ruleSetXml.getBytes("UTF-8"));
                 } catch (UnsupportedEncodingException e) {
@@ -485,11 +491,13 @@ public abstract class AbstractRuleSetFactoryTest {
      * Validator for the SAX parser
      */
     private static class ValidateDefaultHandler extends DefaultHandler {
-        private final String validateDocument;
         private boolean valid = true;
+        private final Map<String, String> schemaMapping;
 
-        ValidateDefaultHandler(String validateDocument) {
-            this.validateDocument = validateDocument;
+        ValidateDefaultHandler() {
+            schemaMapping = new HashMap<>();
+            schemaMapping.put("http://pmd.sourceforge.net/ruleset_2_0_0.xsd", "ruleset_2_0_0.xsd");
+            schemaMapping.put("http://pmd.sourceforge.net/ruleset_2_0_0.dtd", "ruleset_2_0_0.dtd");
         }
 
         public ValidateDefaultHandler resetValid() {
@@ -524,10 +532,11 @@ public abstract class AbstractRuleSetFactoryTest {
 
         @Override
         public InputSource resolveEntity(String publicId, String systemId) throws IOException, SAXException {
-            if ("http://pmd.sourceforge.net/ruleset_2_0_0.xsd".equals(systemId)
-                    || systemId.endsWith("ruleset_2_0_0.dtd")) {
+            String resource = schemaMapping.get(systemId);
+
+            if (resource != null) {
                 try {
-                    InputStream inputStream = loadResourceAsStream(validateDocument);
+                    InputStream inputStream = loadResourceAsStream(resource);
                     return new InputSource(inputStream);
                 } catch (RuleSetNotFoundException e) {
                     System.err.println(e.getMessage());

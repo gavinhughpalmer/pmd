@@ -4,7 +4,6 @@
 
 package net.sourceforge.pmd.lang.apex.metrics;
 
-import static net.sourceforge.pmd.lang.apex.metrics.ApexMetricsVisitorTest.parseAndVisitForString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
@@ -16,18 +15,22 @@ import java.util.Random;
 import org.apache.commons.io.IOUtils;
 import org.junit.Test;
 
+import net.sourceforge.pmd.lang.LanguageRegistry;
+import net.sourceforge.pmd.lang.LanguageVersionHandler;
+import net.sourceforge.pmd.lang.apex.ApexLanguageModule;
 import net.sourceforge.pmd.lang.apex.ast.ASTMethod;
 import net.sourceforge.pmd.lang.apex.ast.ASTUserClass;
 import net.sourceforge.pmd.lang.apex.ast.ASTUserClassOrInterface;
 import net.sourceforge.pmd.lang.apex.ast.ApexNode;
+import net.sourceforge.pmd.lang.apex.ast.ApexParserTestHelpers;
 import net.sourceforge.pmd.lang.apex.ast.ApexParserVisitorAdapter;
 import net.sourceforge.pmd.lang.apex.metrics.impl.AbstractApexClassMetric;
 import net.sourceforge.pmd.lang.apex.metrics.impl.AbstractApexOperationMetric;
-import net.sourceforge.pmd.lang.metrics.Metric.Version;
+import net.sourceforge.pmd.lang.apex.multifile.ApexMultifileVisitorTest;
 import net.sourceforge.pmd.lang.metrics.MetricKey;
 import net.sourceforge.pmd.lang.metrics.MetricKeyUtil;
 import net.sourceforge.pmd.lang.metrics.MetricMemoizer;
-import net.sourceforge.pmd.lang.metrics.MetricVersion;
+import net.sourceforge.pmd.lang.metrics.MetricOptions;
 
 import apex.jorje.semantic.ast.compilation.Compilation;
 
@@ -37,14 +40,14 @@ import apex.jorje.semantic.ast.compilation.Compilation;
 public class ApexProjectMirrorTest {
 
     private static ApexNode<Compilation> acu;
-    private MetricKey<ASTUserClassOrInterface<?>> classMetricKey = MetricKeyUtil.of(new RandomClassMetric(), null);
-    private MetricKey<ASTMethod> opMetricKey = MetricKeyUtil.of(new RandomOperationMetric(), null);
+    private MetricKey<ASTUserClassOrInterface<?>> classMetricKey = MetricKeyUtil.of(null, new RandomClassMetric());
+    private MetricKey<ASTMethod> opMetricKey = MetricKeyUtil.of(null, new RandomOperationMetric());
 
 
     static {
         try {
             acu = parseAndVisitForString(
-                IOUtils.toString(ApexMetricsVisitorTest.class.getResourceAsStream("MetadataDeployController.cls")));
+                IOUtils.toString(ApexMultifileVisitorTest.class.getResourceAsStream("MetadataDeployController.cls")));
         } catch (IOException ioe) {
             // Should definitely not happen
         }
@@ -86,7 +89,8 @@ public class ApexProjectMirrorTest {
             @Override
             public Object visit(ASTMethod node, Object data) {
                 MetricMemoizer<ASTMethod> op = toplevel.getOperationMemoizer(node.getQualifiedName());
-                result.add((int) ApexMetricsComputer.INSTANCE.computeForOperation(opMetricKey, node, force, Version.STANDARD, op));
+                result.add((int) ApexMetricsComputer.INSTANCE.computeForOperation(opMetricKey, node, force,
+                                                                                  MetricOptions.emptyOptions(), op));
                 return super.visit(node, data);
             }
 
@@ -94,7 +98,8 @@ public class ApexProjectMirrorTest {
             @Override
             public Object visit(ASTUserClass node, Object data) {
                 MetricMemoizer<ASTUserClassOrInterface<?>> clazz = toplevel.getClassMemoizer(node.getQualifiedName());
-                result.add((int) ApexMetricsComputer.INSTANCE.computeForType(classMetricKey, node, force, Version.STANDARD, clazz));
+                result.add((int) ApexMetricsComputer.INSTANCE.computeForType(classMetricKey, node, force,
+                                                                             MetricOptions.emptyOptions(), clazz));
                 return super.visit(node, data);
             }
         }, null);
@@ -103,13 +108,21 @@ public class ApexProjectMirrorTest {
     }
 
 
+    static ApexNode<Compilation> parseAndVisitForString(String source) {
+        LanguageVersionHandler languageVersionHandler = LanguageRegistry.getLanguage(ApexLanguageModule.NAME)
+                                                                        .getDefaultVersion().getLanguageVersionHandler();
+        ApexNode<Compilation> acu = ApexParserTestHelpers.parse(source);
+        languageVersionHandler.getSymbolFacade().start(acu);
+        return acu;
+    }
+
     private class RandomOperationMetric extends AbstractApexOperationMetric {
 
         private Random random = new Random();
 
 
         @Override
-        public double computeFor(ASTMethod node, MetricVersion version) {
+        public double computeFor(ASTMethod node, MetricOptions options) {
             return random.nextInt();
         }
     }
@@ -120,9 +133,10 @@ public class ApexProjectMirrorTest {
 
 
         @Override
-        public double computeFor(ASTUserClassOrInterface<?> node, MetricVersion version) {
+        public double computeFor(ASTUserClassOrInterface<?> node, MetricOptions options) {
             return random.nextInt();
         }
     }
+
 
 }

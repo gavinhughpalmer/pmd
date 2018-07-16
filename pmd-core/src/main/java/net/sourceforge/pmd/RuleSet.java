@@ -9,8 +9,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.logging.Level;
@@ -18,8 +18,9 @@ import java.util.logging.Logger;
 
 import org.apache.commons.lang3.StringUtils;
 
-import net.sourceforge.pmd.benchmark.Benchmark;
-import net.sourceforge.pmd.benchmark.Benchmarker;
+import net.sourceforge.pmd.benchmark.TimeTracker;
+import net.sourceforge.pmd.benchmark.TimedOperation;
+import net.sourceforge.pmd.benchmark.TimedOperationCategory;
 import net.sourceforge.pmd.cache.ChecksumAware;
 import net.sourceforge.pmd.lang.Language;
 import net.sourceforge.pmd.lang.LanguageVersion;
@@ -35,7 +36,6 @@ import net.sourceforge.pmd.util.filter.Filters;
  *
  * @see Rule
  */
-// FUTURE Implement Cloneable and clone()
 public class RuleSet implements ChecksumAware {
 
     private static final Logger LOG = Logger.getLogger(RuleSet.class.getName());
@@ -78,6 +78,22 @@ public class RuleSet implements ChecksumAware {
         final Filter<String> regexFilter = Filters.buildRegexFilterIncludeOverExclude(includePatterns, excludePatterns);
         filter = Filters.toNormalizedFileFilter(regexFilter);
     }
+    
+    public RuleSet(final RuleSet rs) {
+        checksum = rs.checksum;
+        fileName = rs.fileName;
+        name = rs.name;
+        description = rs.description;
+        
+        rules = new ArrayList<>(rs.rules.size());
+        for (final Rule rule : rs.rules) {
+            rules.add(rule.deepCopy());
+        }
+        
+        excludePatterns = rs.excludePatterns; // we can share immutable lists of immutable elements
+        includePatterns = rs.includePatterns;
+        filter = rs.filter; // filters are immutable, can be shared
+    }
 
     /* package */ static class RuleSetBuilder {
         public String description;
@@ -107,15 +123,26 @@ public class RuleSet implements ChecksumAware {
          * Add a new rule to this ruleset. Note that this method does not check
          * for duplicates.
          *
-         * @param rule
+         * @param newRule
          *            the rule to be added
          * @return The same builder, for a fluid programming interface
          */
-        public RuleSetBuilder addRule(final Rule rule) {
-            if (rule == null) {
+        public RuleSetBuilder addRule(final Rule newRule) {
+            if (newRule == null) {
                 throw new IllegalArgumentException(MISSING_RULE);
             }
-            rules.add(rule);
+
+            // check for duplicates - adding more than one rule with the same name will
+            // be problematic - see #RuleSet.getRuleByName(String)
+            for (Rule rule : rules) {
+                if (rule.getName().equals(newRule.getName()) && rule.getLanguage() == newRule.getLanguage()) {
+                    LOG.warning("The rule with name " + newRule.getName() + " is duplicated. "
+                            + "Future versions of PMD will reject to load such rulesets.");
+                    break;
+                }
+            }
+
+            rules.add(newRule);
             return this;
         }
 
@@ -148,13 +175,20 @@ public class RuleSet implements ChecksumAware {
          * same language was added before, so that the existent rule
          * configuration won't be overridden.
          *
-         * @param rule
+         * @param ruleOrRef
          *            the new rule to add
          * @return The same builder, for a fluid programming interface
          */
-        public RuleSetBuilder addRuleIfNotExists(final Rule rule) {
-            if (rule == null) {
+        public RuleSetBuilder addRuleIfNotExists(final Rule ruleOrRef) {
+            if (ruleOrRef == null) {
                 throw new IllegalArgumentException(MISSING_RULE);
+            }
+
+            // resolve the underlying rule, to avoid adding duplicated rules
+            // if the rule has been renamed/merged and moved at the same time
+            Rule rule = ruleOrRef;
+            while (rule instanceof RuleReference) {
+                rule = ((RuleReference) rule).getRule();
             }
 
             boolean exists = false;
@@ -165,7 +199,7 @@ public class RuleSet implements ChecksumAware {
                 }
             }
             if (!exists) {
-                addRule(rule);
+                addRule(ruleOrRef);
             }
             return this;
         }
@@ -191,11 +225,8 @@ public class RuleSet implements ChecksumAware {
             if (rule instanceof RuleReference) {
                 ruleReference = (RuleReference) rule;
             } else {
-                final RuleSetReference ruleSetReference = new RuleSetReference();
-                ruleSetReference.setRuleSetFileName(ruleSetFileName);
-                ruleReference = new RuleReference();
-                ruleReference.setRule(rule);
-                ruleReference.setRuleSetReference(ruleSetReference);
+                final RuleSetReference ruleSetReference = new RuleSetReference(ruleSetFileName);
+                ruleReference = new RuleReference(rule, ruleSetReference);
             }
             rules.add(ruleReference);
             return this;
@@ -251,11 +282,13 @@ public class RuleSet implements ChecksumAware {
                 throw new RuntimeException(
                         "Adding a rule by reference is not allowed with an empty rule set file name.");
             }
-            final RuleSetReference ruleSetReference = new RuleSetReference(ruleSet.getFileName());
-            ruleSetReference.setAllRules(allRules);
-            if (excludes != null) {
-                ruleSetReference.setExcludes(new HashSet<>(Arrays.asList(excludes)));
+            final RuleSetReference ruleSetReference;
+            if (excludes == null) {
+                ruleSetReference = new RuleSetReference(ruleSet.getFileName(), allRules);
+            } else {
+                ruleSetReference = new RuleSetReference(ruleSet.getFileName(), allRules, new LinkedHashSet<>(Arrays.asList(excludes)));
             }
+
             for (final Rule rule : ruleSet.getRules()) {
                 final RuleReference ruleReference = new RuleReference(rule, ruleSetReference);
                 rules.add(ruleReference);
@@ -371,6 +404,17 @@ public class RuleSet implements ChecksumAware {
         public RuleSet build() {
             return new RuleSet(this);
         }
+
+        public void filterRulesByPriority(RulePriority minimumPriority) {
+            Iterator<Rule> iterator = rules.iterator();
+            while (iterator.hasNext()) {
+                Rule rule = iterator.next();
+                if (rule.getPriority().compareTo(minimumPriority) > 0) {
+                    LOG.fine("Removing rule " + rule.getName() + " due to priority: " + rule.getPriority() + " required: " + minimumPriority);
+                    iterator.remove();
+                }
+            }
+        }
     }
 
     /**
@@ -425,7 +469,7 @@ public class RuleSet implements ChecksumAware {
      *         <code>false</code> otherwise
      */
     public boolean applies(File file) {
-        return file != null ? filter.filter(file) : true;
+        return file == null || filter.filter(file);
     }
 
     /**
@@ -450,23 +494,24 @@ public class RuleSet implements ChecksumAware {
      *            the current context
      */
     public void apply(List<? extends Node> acuList, RuleContext ctx) {
-        long start = System.nanoTime();
-        for (Rule rule : rules) {
-            try {
-                if (!rule.usesRuleChain() && applies(rule, ctx.getLanguageVersion())) {
-                    rule.apply(acuList, ctx);
-                    long end = System.nanoTime();
-                    Benchmarker.mark(Benchmark.Rule, rule.getName(), end - start, 1);
-                    start = end;
-                }
-            } catch (RuntimeException e) {
-                if (ctx.isIgnoreExceptions()) {
-                    if (LOG.isLoggable(Level.WARNING)) {
-                        LOG.log(Level.WARNING, "Exception applying rule " + rule.getName() + " on file "
-                                + ctx.getSourceCodeFilename() + ", continuing with next rule", e);
+        try (TimedOperation to = TimeTracker.startOperation(TimedOperationCategory.RULE)) {
+            for (Rule rule : rules) {
+                if (!rule.isRuleChain() && applies(rule, ctx.getLanguageVersion())) {
+
+                    try (TimedOperation rto = TimeTracker.startOperation(TimedOperationCategory.RULE, rule.getName())) {
+                        rule.apply(acuList, ctx);
+                    } catch (RuntimeException e) {
+                        if (ctx.isIgnoreExceptions()) {
+                            ctx.getReport().addError(new Report.ProcessingError(e, ctx.getSourceCodeFilename()));
+
+                            if (LOG.isLoggable(Level.WARNING)) {
+                                LOG.log(Level.WARNING, "Exception applying rule " + rule.getName() + " on file "
+                                        + ctx.getSourceCodeFilename() + ", continuing with next rule", e);
+                            }
+                        } else {
+                            throw e;
+                        }
                     }
-                } else {
-                    throw e;
                 }
             }
         }
@@ -564,7 +609,7 @@ public class RuleSet implements ChecksumAware {
      */
     public boolean usesDFA(Language language) {
         for (Rule r : rules) {
-            if (r.getLanguage().equals(language) && r.usesDFA()) {
+            if (r.getLanguage().equals(language) && r.isDfa()) {
                 return true;
             }
         }
@@ -581,23 +626,26 @@ public class RuleSet implements ChecksumAware {
      */
     public boolean usesTypeResolution(Language language) {
         for (Rule r : rules) {
-            if (r.getLanguage().equals(language) && r.usesTypeResolution()) {
+            if (r.getLanguage().equals(language) && r.isTypeResolution()) {
                 return true;
             }
         }
         return false;
     }
 
+
     /**
-     * Does any Rule for the given Language use the Metrics Framework?
+     * Does any Rule for the given Language use multi-file analysis?
      *
-     * @param language The Language.
-     * @return <code>true</code> if a Rule for the Language uses the Metrics
-     * Framework, <code>false</code> otherwise.
+     * @param language
+     *            The Language.
+     *
+     * @return {@code true} if a Rule for the Language uses multi file analysis,
+     *         {@code false} otherwise.
      */
-    public boolean usesMetrics(Language language) {
+    public boolean usesMultifile(Language language) {
         for (Rule r : rules) {
-            if (r.getLanguage().equals(language) && r.usesMetrics()) {
+            if (r.getLanguage().equals(language) && r.isMultifile()) {
                 return true;
             }
         }

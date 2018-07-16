@@ -10,15 +10,14 @@ import static org.junit.Assert.assertTrue;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.junit.Assume;
 import org.junit.Test;
 
-import net.sourceforge.pmd.PropertyDescriptor;
-import net.sourceforge.pmd.lang.rule.properties.MethodMultiProperty;
-import net.sourceforge.pmd.lang.rule.properties.MethodProperty;
-import net.sourceforge.pmd.lang.rule.properties.ValueParser;
-import net.sourceforge.pmd.lang.rule.properties.modules.MethodPropertyModule;
+import net.sourceforge.pmd.properties.modules.MethodPropertyModule;
 import net.sourceforge.pmd.util.ClassUtil;
+
 
 /**
  * Evaluates the functionality of the MethodProperty descriptor by testing its
@@ -45,14 +44,24 @@ public class MethodPropertyTest extends AbstractPackagedPropertyDescriptorTester
     }
 
 
+    @Override
+    @Test
+    public void testMissingPackageNames() {
+        Map<PropertyDescriptorField, String> attributes = getPropertyDescriptorValues();
+        attributes.remove(PropertyDescriptorField.LEGAL_PACKAGES);
+        new MethodProperty("p", "d", ALL_METHODS[1], null, 1.0f); // no exception, null is ok
+        new MethodMultiProperty("p", "d", new Method[]{ALL_METHODS[2], ALL_METHODS[3]}, null, 1.0f); // no exception, null is ok
+    }
+
+
     @Test
     public void testAsStringOn() {
 
         Method method;
 
-        for (int i = 0; i < METHOD_SIGNATURES.length; i++) {
-            method = ValueParser.METHOD_PARSER.valueOf(METHOD_SIGNATURES[i]);
-            assertNotNull("Unable to identify method: " + METHOD_SIGNATURES[i], method);
+        for (String methodSignature : METHOD_SIGNATURES) {
+            method = ValueParserConstants.METHOD_PARSER.valueOf(methodSignature);
+            assertNotNull("Unable to identify method: " + methodSignature, method);
         }
     }
 
@@ -63,7 +72,7 @@ public class MethodPropertyTest extends AbstractPackagedPropertyDescriptorTester
         Method[] methods = new Method[METHOD_SIGNATURES.length];
 
         for (int i = 0; i < METHOD_SIGNATURES.length; i++) {
-            methods[i] = ValueParser.METHOD_PARSER.valueOf(METHOD_SIGNATURES[i]);
+            methods[i] = ValueParserConstants.METHOD_PARSER.valueOf(METHOD_SIGNATURES[i]);
             assertNotNull("Unable to identify method: " + METHOD_SIGNATURES[i], methods[i]);
         }
 
@@ -90,28 +99,50 @@ public class MethodPropertyTest extends AbstractPackagedPropertyDescriptorTester
 
     @Override
     protected PropertyDescriptor<Method> createProperty() {
-        return new MethodProperty("methodProperty", "asdf", ALL_METHODS[1], new String[] {"java.lang", "org.apache"},
-                                  1.0f);
+        return new MethodProperty("methodProperty", "asdf", ALL_METHODS[1], new String[]{"java.lang", "org.apache"},
+            1.0f);
     }
 
 
     @Override
     protected PropertyDescriptor<List<Method>> createMultiProperty() {
-        return new MethodMultiProperty("methodProperty", "asdf", new Method[] {ALL_METHODS[2], ALL_METHODS[3]},
-                                       new String[] {"java.lang"}, 1.0f);
+        return new MethodMultiProperty("methodProperty", "asdf", new Method[]{ALL_METHODS[2], ALL_METHODS[3]},
+            new String[]{"java.lang"}, 1.0f);
     }
 
 
     @Override
     protected PropertyDescriptor<Method> createBadProperty() {
-        return new MethodProperty("methodProperty", "asdf", ALL_METHODS[1], new String[] {"java.util"}, 1.0f);
+        return new MethodProperty("methodProperty", "asdf", ALL_METHODS[1], new String[]{"java.util"}, 1.0f);
 
     }
 
 
     @Override
     protected PropertyDescriptor<List<Method>> createBadMultiProperty() {
-        return new MethodMultiProperty("methodProperty", "asdf", new Method[] {ALL_METHODS[2], ALL_METHODS[3]},
-                                       new String[] {"java.util"}, 1.0f);
+        return new MethodMultiProperty("methodProperty", "asdf", new Method[]{ALL_METHODS[2], ALL_METHODS[3]},
+            new String[]{"java.util"}, 1.0f);
     }
+
+
+    @Override
+    @Test
+    public void testFactorySingleValue() {
+        Assume.assumeTrue("MethodProperty cannot be built from XPath (#762)", false);
+    }
+
+
+    @Override
+    @Test
+    public void testFactoryMultiValueCustomDelimiter() {
+        Assume.assumeTrue("MethodProperty cannot be built from XPath (#762)", false);
+    }
+
+
+    @Override
+    @Test
+    public void testFactoryMultiValueDefaultDelimiter() {
+        Assume.assumeTrue("MethodProperty cannot be built from XPath (#762)", false);
+    }
+
 }

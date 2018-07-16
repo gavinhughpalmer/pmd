@@ -28,8 +28,8 @@ public abstract class AbstractApexNode<T extends AstNode> extends AbstractNode i
         }
 
         Location loc = node.getLoc();
-        int startOffset = loc.startIndex;
-        int endOffset = loc.endIndex;
+        int startOffset = loc.getStartIndex();
+        int endOffset = loc.getEndIndex();
         // end column will be interpreted as inclusive, while endOffset/endIndex
         // is exclusive
         endOffset -= 1;
@@ -99,6 +99,7 @@ public abstract class AbstractApexNode<T extends AstNode> extends AbstractNode i
     /**
      * Accept the visitor. *
      */
+    @Override
     public Object childrenAccept(ApexParserVisitor visitor, Object data) {
         if (children != null) {
             for (int i = 0; i < children.length; ++i) {
@@ -111,6 +112,7 @@ public abstract class AbstractApexNode<T extends AstNode> extends AbstractNode i
         return data;
     }
 
+    @Override
     public T getNode() {
         return node;
     }
@@ -130,10 +132,14 @@ public abstract class AbstractApexNode<T extends AstNode> extends AbstractNode i
         }
     }
 
+
+
+
     @Override
-    public String toString() {
+    public final String getXPathNodeName() {
         return this.getClass().getSimpleName().replaceFirst("^AST", "");
     }
+
 
     public String getLocation() {
         if (hasRealLoc()) {

@@ -22,7 +22,7 @@ public abstract class AbstractPLSQLRule extends AbstractRule implements PLSQLPar
     public AbstractPLSQLRule() {
         super.setLanguage(LanguageRegistry.getLanguage(PLSQLLanguageModule.NAME));
         // Enable Type Resolution on PLSQL Rules by default
-        super.setUsesTypeResolution();
+        super.setTypeResolution(true);
     }
 
     @Override
@@ -792,6 +792,16 @@ public abstract class AbstractPLSQLRule extends AbstractRule implements PLSQLPar
 
     @Override
     public Object visit(ASTIsNullCondition node, Object data) {
+        return visit((PLSQLNode) node, data);
+    }
+
+    @Override
+    public Object visit(ASTOutOfLineConstraint node, Object data) {
+        return visit((PLSQLNode) node, data);
+    }
+
+    @Override
+    public Object visit(ASTReferencesClause node, Object data) {
         return visit((PLSQLNode) node, data);
     }
 

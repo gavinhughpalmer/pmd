@@ -8,9 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import net.sourceforge.pmd.MultiValuePropertyDescriptor;
-import net.sourceforge.pmd.PropertyDescriptor;
-import net.sourceforge.pmd.PropertySource;
 import net.sourceforge.pmd.Rule;
 import net.sourceforge.pmd.RuleContext;
 import net.sourceforge.pmd.RulePriority;
@@ -18,6 +15,9 @@ import net.sourceforge.pmd.lang.Language;
 import net.sourceforge.pmd.lang.LanguageVersion;
 import net.sourceforge.pmd.lang.ParserOptions;
 import net.sourceforge.pmd.lang.ast.Node;
+import net.sourceforge.pmd.properties.MultiValuePropertyDescriptor;
+import net.sourceforge.pmd.properties.PropertyDescriptor;
+import net.sourceforge.pmd.properties.PropertySource;
 
 /**
  * Base class for Rule implementations which delegate to another Rule instance.
@@ -220,38 +220,80 @@ public abstract class AbstractDelegateRule implements Rule {
     }
 
     @Override
+    @Deprecated // To be removed in PMD 7.0.0
     public void setUsesDFA() {
-        rule.setUsesDFA();
+        rule.setDfa(true);
     }
 
     @Override
+    public void setDfa(boolean isDfa) {
+        rule.setDfa(isDfa);
+    }
+
+    @Override
+    @Deprecated // To be removed in PMD 7.0.0
     public boolean usesDFA() {
-        return rule.usesDFA();
+        return rule.isDfa();
     }
 
     @Override
+    public boolean isDfa() {
+        return rule.isDfa();
+    }
+
+    @Override
+    @Deprecated // To be removed in PMD 7.0.0
     public void setUsesTypeResolution() {
-        rule.setUsesTypeResolution();
+        rule.setTypeResolution(true);
     }
 
     @Override
+    public void setTypeResolution(boolean usingTypeResolution) {
+        rule.setTypeResolution(usingTypeResolution);
+    }
+
+    @Override
+    @Deprecated // To be removed in PMD 7.0.0
     public boolean usesTypeResolution() {
-        return rule.usesTypeResolution();
+        return rule.isTypeResolution();
     }
 
     @Override
-    public void setUsesMetrics() {
-        rule.setUsesMetrics();
+    public boolean isTypeResolution() {
+        return rule.isTypeResolution();
     }
 
     @Override
-    public boolean usesMetrics() {
-        return rule.usesMetrics();
+    @Deprecated // To be removed in PMD 7.0.0
+    public void setUsesMultifile() {
+        rule.setMultifile(true);
     }
 
     @Override
+    public void setMultifile(boolean multifile) {
+        rule.setMultifile(multifile);
+    }
+
+    @Override
+    @Deprecated // To be removed in PMD 7.0.0
+    public boolean usesMultifile() {
+        return rule.isMultifile();
+    }
+
+    @Override
+    public boolean isMultifile() {
+        return rule.isMultifile();
+    }
+
+    @Override
+    @Deprecated // To be removed in PMD 7.0.0
     public boolean usesRuleChain() {
-        return rule.usesRuleChain();
+        return rule.isRuleChain();
+    }
+
+    @Override
+    public boolean isRuleChain() {
+        return rule.isRuleChain();
     }
 
     @Override

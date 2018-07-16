@@ -6,9 +6,11 @@
 package net.sourceforge.pmd.lang.java.ast;
 
 import net.sourceforge.pmd.lang.ast.SignedNode;
-import net.sourceforge.pmd.lang.java.metrics.signature.JavaFieldSignature;
+import net.sourceforge.pmd.lang.java.multifile.signature.JavaFieldSignature;
 
 public class ASTFieldDeclaration extends AbstractJavaAccessTypeNode implements Dimensionable, SignedNode<ASTFieldDeclaration> {
+
+    private JavaFieldSignature signature;
 
 
     public ASTFieldDeclaration(int id) {
@@ -88,24 +90,23 @@ public class ASTFieldDeclaration extends AbstractJavaAccessTypeNode implements D
     }
 
     public boolean isAnnotationMember() {
-        if (jjtGetParent().jjtGetParent() instanceof ASTAnnotationTypeBody) {
-            return true;
-        }
-        return false;
+        return getNthParent(2) instanceof ASTAnnotationTypeBody;
     }
 
     public boolean isInterfaceMember() {
-        if (jjtGetParent().jjtGetParent() instanceof ASTEnumBody) {
+        if (getNthParent(2) instanceof ASTEnumBody) {
             return false;
         }
         ASTClassOrInterfaceDeclaration n = getFirstParentOfType(ASTClassOrInterfaceDeclaration.class);
         return n != null && n.isInterface();
     }
 
+    @Override
     public boolean isArray() {
         return checkType() + checkDecl() > 0;
     }
 
+    @Override
     public int getArrayDepth() {
         if (!isArray()) {
             return 0;
@@ -145,6 +146,10 @@ public class ASTFieldDeclaration extends AbstractJavaAccessTypeNode implements D
 
     @Override
     public JavaFieldSignature getSignature() {
-        return JavaFieldSignature.buildFor(this);
+        if (signature == null) {
+            signature = JavaFieldSignature.buildFor(this);
+        }
+
+        return signature;
     }
 }

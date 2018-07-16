@@ -30,17 +30,11 @@ public class VBHTMLRenderer extends AbstractIncrementingRenderer {
         return "vb.html";
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void start() throws IOException {
         getWriter().write(header());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void renderFileViolations(Iterator<RuleViolation> violations) throws IOException {
         if (!violations.hasNext()) {
@@ -87,9 +81,6 @@ public class VBHTMLRenderer extends AbstractIncrementingRenderer {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void end() throws IOException {
         Writer writer = getWriter();
@@ -111,7 +102,7 @@ public class VBHTMLRenderer extends AbstractIncrementingRenderer {
                 }
                 colorize = !colorize;
                 sb.append("<td><font class=body>").append(error.getFile()).append("</font></td>");
-                sb.append("<td><font class=body>").append(error.getMsg()).append("</font></td></tr>");
+                sb.append("<td><font class=body><pre>").append(error.getDetail()).append("</pre></font></td></tr>");
             }
             sb.append("</table>");
             writer.write(sb.toString());

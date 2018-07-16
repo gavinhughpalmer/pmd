@@ -12,19 +12,19 @@ package net.sourceforge.pmd.lang.java.ast;
 public class JavaParserVisitorReducedAdapter extends JavaParserVisitorAdapter {
 
     @Override
-    public final Object visit(ASTClassOrInterfaceDeclaration node, Object data) {
+    public Object visit(ASTClassOrInterfaceDeclaration node, Object data) {
         return visit((ASTAnyTypeDeclaration) node, data);
     }
 
 
     @Override
-    public final Object visit(ASTAnnotationTypeDeclaration node, Object data) {
+    public Object visit(ASTAnnotationTypeDeclaration node, Object data) {
         return visit((ASTAnyTypeDeclaration) node, data);
     }
 
 
     @Override
-    public final Object visit(ASTEnumDeclaration node, Object data) {
+    public Object visit(ASTEnumDeclaration node, Object data) {
         return visit((ASTAnyTypeDeclaration) node, data);
     }
 
@@ -35,18 +35,29 @@ public class JavaParserVisitorReducedAdapter extends JavaParserVisitorAdapter {
 
 
     @Override
-    public final Object visit(ASTMethodDeclaration node, Object data) {
+    public Object visit(ASTMethodDeclaration node, Object data) {
         return visit((ASTMethodOrConstructorDeclaration) node, data);
     }
 
 
     @Override
-    public final Object visit(ASTConstructorDeclaration node, Object data) {
+    public Object visit(ASTConstructorDeclaration node, Object data) {
         return visit((ASTMethodOrConstructorDeclaration) node, data);
     }
 
 
     public Object visit(ASTMethodOrConstructorDeclaration node, Object data) {
+        return visit((MethodLikeNode) node, data);
+    }
+
+
+    @Override
+    public Object visit(ASTLambdaExpression node, Object data) {
+        return visit((MethodLikeNode) node, data);
+    }
+
+
+    public Object visit(MethodLikeNode node, Object data) {
         return visit((JavaNode) node, data);
     }
 

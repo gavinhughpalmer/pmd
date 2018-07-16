@@ -16,7 +16,7 @@ import net.sourceforge.pmd.PMD;
 import net.sourceforge.pmd.Report;
 import net.sourceforge.pmd.Report.ConfigurationError;
 import net.sourceforge.pmd.RuleViolation;
-import net.sourceforge.pmd.lang.rule.properties.StringProperty;
+import net.sourceforge.pmd.properties.StringProperty;
 
 /**
  * Renderer to basic HTML format.
@@ -75,9 +75,6 @@ public class HTMLRenderer extends AbstractIncrementingRenderer {
         glomConfigurationErrors(writer, configErrors);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void start() throws IOException {
         Writer writer = getWriter();
@@ -88,18 +85,12 @@ public class HTMLRenderer extends AbstractIncrementingRenderer {
                 + "<th>#</th><th>File</th><th>Line</th><th>Problem</th></tr>" + PMD.EOL);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void renderFileViolations(Iterator<RuleViolation> violations) throws IOException {
         Writer writer = getWriter();
         glomRuleViolations(writer, violations);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void end() throws IOException {
         Writer writer = getWriter();
@@ -167,7 +158,7 @@ public class HTMLRenderer extends AbstractIncrementingRenderer {
             colorize = !colorize;
             buf.append("> " + PMD.EOL);
             buf.append("<td>" + pe.getFile() + "</td>" + PMD.EOL);
-            buf.append("<td>" + pe.getMsg() + "</td>" + PMD.EOL);
+            buf.append("<td><pre>" + pe.getDetail() + "</pre></td>" + PMD.EOL);
             buf.append("</tr>" + PMD.EOL);
             writer.write(buf.toString());
         }

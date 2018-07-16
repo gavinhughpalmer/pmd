@@ -18,7 +18,7 @@ import org.apache.commons.io.IOUtils;
 import net.sourceforge.pmd.PMD;
 import net.sourceforge.pmd.Report;
 import net.sourceforge.pmd.RuleViolation;
-import net.sourceforge.pmd.lang.rule.properties.StringProperty;
+import net.sourceforge.pmd.properties.StringProperty;
 
 /**
  * <p>
@@ -67,6 +67,7 @@ public class TextColorRenderer extends AbstractAccumulatingRenderer {
     private String yellowBold = "";
     private String whiteBold = "";
     private String redBold = "";
+    private String red = "";
     private String cyan = "";
     private String green = "";
 
@@ -96,6 +97,7 @@ public class TextColorRenderer extends AbstractAccumulatingRenderer {
             this.yellowBold = "\u001B[1;33m";
             this.whiteBold = "\u001B[1;37m";
             this.redBold = "\u001B[1;31m";
+            this.red = "\u001B[0;31m";
             this.green = "\u001B[0;32m";
             this.cyan = "\u001B[0;36m";
 
@@ -107,9 +109,6 @@ public class TextColorRenderer extends AbstractAccumulatingRenderer {
         return property != null && !("0".equals(property) || "false".equalsIgnoreCase(property));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void end() throws IOException {
         StringBuilder buf = new StringBuilder(500);
@@ -157,7 +156,8 @@ public class TextColorRenderer extends AbstractAccumulatingRenderer {
                 buf.append(this.redBold + "*" + this.colorReset + " file: " + this.whiteBold
                         + this.getRelativePath(lastFile) + this.colorReset + PMD.EOL);
             }
-            buf.append(this.green + "    err:  " + this.cyan + error.getMsg() + this.colorReset + PMD.EOL + PMD.EOL);
+            buf.append(this.green + "    err:  " + this.cyan + error.getMsg() + this.colorReset + PMD.EOL)
+                .append(this.red).append(error.getDetail()).append(colorReset).append(PMD.EOL).append(PMD.EOL);
             writer.write(buf.toString());
         }
         

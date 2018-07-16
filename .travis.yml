@@ -1,15 +1,10 @@
 dist: trusty
 sudo: false
 addons:
-  apt:
-    packages:
-      - oracle-java8-installer
   ssh_known_hosts:
     - web.sourceforge.net
 
 language: java
-
-jdk: oraclejdk8
 
 env:
   global:
@@ -31,9 +26,11 @@ matrix:
   fast_finish: true
 
 before_install:
+  - wget https://github.com/sormuras/bach/raw/master/install-jdk.sh
   - bash .travis/setup-secrets.sh
   - bash .travis/configure-maven.sh
-install: true
+# Install OracleJDK 10 - see https://sormuras.github.io/blog/2018-03-20-jdk-matrix.html
+install: . ./install-jdk.sh -F 10 -L BCL
 before_script: true
 script: source .travis/build-$BUILD.sh
 after_success: true
@@ -46,19 +43,26 @@ deploy:
   file_glob: true
   file:
   - pmd-dist/target/pmd-*.zip
-  - target/pmd-doc-*.zip
+  - docs/pmd-doc-*.zip
   skip_cleanup: true
   on:
     tags: true
     repo: pmd/pmd
-    condition: "${TRAVIS_SECURE_ENV_VARS} = true && ${BUILD} != sonar"
+    condition: "${TRAVIS_SECURE_ENV_VARS} = true && ${BUILD} != sonar && ${BUILD} != coveralls"
 after_deploy: bash .travis/release.sh
 
 notifications:
+  webhooks:
+    urls:
+      - https://webhooks.gitter.im/e/0e6dd310db54b96c2653
+      - https://webhooks.gitter.im/e/65efc1ea65175ad23ab6
+    on_success: always  # options: [always|never|change] default: always
+    on_failure: always  # options: [always|never|change] default: always
+    on_start: never     # options: [always|never|change] default: always
   email:
     recipients:
     - andreas.dangel@adangel.org
-    on_success: always
+    on_success: change
     on_failure: always
 cache:
   directories:

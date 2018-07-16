@@ -6,10 +6,6 @@ package net.sourceforge.pmd.properties;
 
 import java.util.List;
 
-import net.sourceforge.pmd.PropertyDescriptor;
-import net.sourceforge.pmd.lang.rule.properties.DoubleMultiProperty;
-import net.sourceforge.pmd.lang.rule.properties.DoubleProperty;
-
 /**
  * Evaluates the functionality of the DoubleProperty descriptor by testing its
  * ability to catch creation errors (illegal args), flag out-of-range test
@@ -43,6 +39,18 @@ public class DoublePropertyTest extends AbstractNumericPropertyDescriptorTester<
     }
 
 
+    protected DoubleProperty.DoublePBuilder singleBuilder() {
+        return DoubleProperty.named("test").desc("foo")
+                             .range(MIN, MAX).defaultValue(createValue()).uiOrder(1.0f);
+    }
+
+
+    protected DoubleMultiProperty.DoubleMultiPBuilder multiBuilder() {
+        return DoubleMultiProperty.named("test").desc("foo")
+                                  .range(MIN, MAX).defaultValues(createValue(), createValue()).uiOrder(1.0f);
+    }
+
+
     @Override
     protected PropertyDescriptor<Double> createProperty() {
         return new DoubleProperty("testDouble", "Test double property", MIN, MAX, 9.0, 1.0f);
@@ -66,5 +74,17 @@ public class DoublePropertyTest extends AbstractNumericPropertyDescriptorTester<
     protected PropertyDescriptor<List<Double>> createBadMultiProperty() {
         return new DoubleMultiProperty("testDouble", "Test double property", MIN, MAX,
                                        new Double[] {MIN - SHIFT, MIN, MIN + SHIFT, MAX + SHIFT}, 1.0f);
+    }
+
+
+    @Override
+    protected Double min() {
+        return MIN;
+    }
+
+
+    @Override
+    protected Double max() {
+        return MAX;
     }
 }

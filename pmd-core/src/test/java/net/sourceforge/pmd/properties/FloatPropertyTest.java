@@ -6,9 +6,6 @@ package net.sourceforge.pmd.properties;
 
 import java.util.List;
 
-import net.sourceforge.pmd.PropertyDescriptor;
-import net.sourceforge.pmd.lang.rule.properties.FloatMultiProperty;
-import net.sourceforge.pmd.lang.rule.properties.FloatProperty;
 
 /**
  * Evaluates the functionality of the FloatProperty descriptor by testing its
@@ -38,7 +35,21 @@ public class FloatPropertyTest extends AbstractNumericPropertyDescriptorTester<F
 
     @Override
     protected Float createBadValue() {
-        return randomBool() ? randomFloat(MIN - SHIFT, MIN) : randomFloat(MAX, MAX + SHIFT);
+        return randomBool() ? randomFloat(MIN - SHIFT, MIN) : randomFloat(MAX + 1, MAX + SHIFT);
+    }
+
+
+    @Override
+    protected FloatProperty.FloatPBuilder singleBuilder() {
+        return FloatProperty.named("test").desc("foo")
+                            .range(MIN, MAX).defaultValue(createValue()).uiOrder(1.0f);
+    }
+
+
+    @Override
+    protected FloatMultiProperty.FloatMultiPBuilder multiBuilder() {
+        return FloatMultiProperty.named("test").desc("foo")
+                                 .range(MIN, MAX).defaultValues(createValue(), createValue()).uiOrder(1.0f);
     }
 
 
@@ -51,7 +62,7 @@ public class FloatPropertyTest extends AbstractNumericPropertyDescriptorTester<F
     @Override
     protected PropertyDescriptor<List<Float>> createMultiProperty() {
         return new FloatMultiProperty("testFloat", "Test float property", MIN, MAX,
-                                      new Float[] {-1f, 0f, 1f, 2f}, 1.0f);
+            new Float[]{6f, 9f, 1f, 2f}, 1.0f);
     }
 
 
@@ -64,15 +75,20 @@ public class FloatPropertyTest extends AbstractNumericPropertyDescriptorTester<F
     @Override
     protected PropertyDescriptor<List<Float>> createBadMultiProperty() {
         return new FloatMultiProperty("testFloat", "Test float property", 0f, 5f,
-                                      new Float[] {-1f, 0f, 1f, 2f}, 1.0f);
+            new Float[]{-1f, 0f, 1f, 2f}, 1.0f);
     }
 
 
-    public static FloatProperty randomProperty(int nameLength, int descLength, boolean multiValue) {
-
-        float defalt = randomFloat(0, 1000f);
-
-        return new FloatProperty(randomString(nameLength), randomString(descLength), defalt - 1000f, defalt + 1000,
-                                 defalt, 0f);
+    @Override
+    protected Float min() {
+        return MIN;
     }
+
+
+    @Override
+    protected Float max() {
+        return MAX;
+    }
+
+
 }
